@@ -79,7 +79,7 @@ export async function captureAllPages(
   // Log warning if maskRegions is configured
   if (config.maskRegions && config.maskRegions.length > 0) {
     console.log(
-      `⚠️  Warning: maskRegions configured but not yet implemented (Track C)`,
+      `⚠️  Mask regions configured but not yet implemented. Screenshots will include masked areas.`,
     );
   }
 

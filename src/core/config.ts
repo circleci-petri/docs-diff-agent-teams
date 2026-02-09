@@ -178,7 +178,7 @@ export async function loadConfig(configPath: string): Promise<Config> {
 
   // Log warning if maskRegions are configured
   if (config.maskRegions && config.maskRegions.length > 0) {
-    console.log('⚠️  Mask regions are configured but not yet implemented');
+    console.log('⚠️  Mask regions configured but not yet implemented. Screenshots will include masked areas.');
   }
 
   return config;
