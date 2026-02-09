@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import type { Reporter, ComparisonResult } from '../types/index.js';
 
 /**
@@ -39,15 +39,21 @@ async function generateMarkdownReport(
     lines.push('');
 
     for (const result of changed) {
+      const relativeBaseline = relative(process.cwd(), result.baselinePath);
+      const relativeCurrent = relative(process.cwd(), result.currentPath);
+      const relativeDiff = result.diffPath
+        ? relative(process.cwd(), result.diffPath)
+        : null;
+
       lines.push(`### ${result.page}`);
       lines.push(`- **Path**: ${result.path}`);
       lines.push(`- **Diff**: ${(result.diffPercentage * 100).toFixed(1)}%`);
-      lines.push(`- **Baseline**: ${result.baselinePath}`);
-      lines.push(`- **Current**: ${result.currentPath}`);
-      if (result.diffPath) {
-        lines.push(`- **Diff Image**: ${result.diffPath}`);
+      lines.push(`- **Baseline**: ${relativeBaseline}`);
+      lines.push(`- **Current**: ${relativeCurrent}`);
+      if (relativeDiff) {
+        lines.push(`- **Diff Image**: ${relativeDiff}`);
         lines.push('');
-        lines.push(`![Diff](${result.diffPath})`);
+        lines.push(`![Diff](${relativeDiff})`);
       }
       lines.push('');
       lines.push('---');

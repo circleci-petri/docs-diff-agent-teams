@@ -113,9 +113,9 @@ describe('Markdown Reporter', () => {
     expect(content).toContain('### getting-started');
     expect(content).toContain('**Path**: /getting-started');
     expect(content).toContain('**Diff**: 12.4%');
-    expect(content).toContain('**Baseline**: ./screenshots/baseline/getting-started.png');
-    expect(content).toContain('**Current**: ./screenshots/current/getting-started.png');
-    expect(content).toContain('**Diff Image**: ./screenshots/diff/getting-started-diff.png');
+    expect(content).toContain('**Baseline**: screenshots/baseline/getting-started.png');
+    expect(content).toContain('**Current**: screenshots/current/getting-started.png');
+    expect(content).toContain('**Diff Image**: screenshots/diff/getting-started-diff.png');
 
     expect(content).toContain('### config-reference');
     expect(content).toContain('**Diff**: 6.8%');
@@ -225,7 +225,7 @@ describe('Markdown Reporter', () => {
     const content = readFileSync(reportPath, 'utf-8');
 
     // Check diff image is embedded
-    expect(content).toContain('![Diff](./screenshots/diff/getting-started-diff.png)');
+    expect(content).toContain('![Diff](screenshots/diff/getting-started-diff.png)');
   });
 
   it('T024: Reporter registry allows registration and retrieval', async () => {
