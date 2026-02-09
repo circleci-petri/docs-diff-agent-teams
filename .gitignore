@@ -1,0 +1,9 @@
+node_modules/
+dist/
+screenshots/current/
+screenshots/diff/
+report/
+*.tsbuildinfo
+.env
+.cache/
+*.log

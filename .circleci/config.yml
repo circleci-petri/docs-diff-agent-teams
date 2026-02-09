@@ -1,0 +1,41 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@6.3
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/node:20.18
+    steps:
+      - checkout
+
+      # Install dependencies
+      - node/install-packages:
+          pkg-manager: pnpm
+          cache-version: v1
+
+      # Type check
+      - run:
+          name: Type Check
+          command: pnpm typecheck
+
+      # Lint
+      - run:
+          name: Lint
+          command: pnpm lint
+
+      # Build
+      - run:
+          name: Build
+          command: pnpm build
+
+      # Test
+      - run:
+          name: Test
+          command: pnpm test:ci
+
+workflows:
+  main:
+    jobs:
+      - build-and-test

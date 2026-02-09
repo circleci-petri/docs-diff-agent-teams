@@ -1,0 +1,831 @@
+# OpenSpec 1.0 — docs-screenshot-diff
+# Version: v1 — 2026-02-07
+# Parent: CIR-481 | Ticket: CIR-483
+# Depends on: CIR-482 (HumanSpec v1 — finalized)
+
+openspec: "1.0"
+
+project:
+  name: "docs-screenshot-diff"
+  description: >
+    CLI tool that monitors circleci.com/docs/ for visual changes by comparing
+    current screenshots against baselines, generating reports of which pages
+    need updated documentation screenshots.
+  type: "cli-tool"
+  repo: "docs-diff-agent-teams"
+  context: >
+    CircleCI's first visual regression tool. Part of Guayaba AI SDLC velocity
+    evaluation. Demo target: internal leadership (JP, Mitch, Webster, Rob).
+    Philosophy: exploration over execution — learning vehicle for AI-assisted
+    development. Repo is docs-diff-agent-teams (agent teams experiment),
+    NOT the PRD's circleci-petri/docs-screenshot-diff.
+
+# ---------------------------------------------------------------------------
+# GOALS — mapped from PRD Success Criteria
+# ---------------------------------------------------------------------------
+goals:
+  - id: G1
+    description: "Capture baseline screenshots of product website pages at consistent 1440x900 resolution"
+  - id: G2
+    description: "Compare current product UI against baseline images using pixelmatch with configurable threshold"
+  - id: G3
+    description: "Generate markdown report identifying which pages visually changed so docs team knows what to update"
+  - id: G4
+    description: "Generate diff images that visually highlight what changed (red/magenta pixels)"
+  - id: G5
+    description: "Support authentication for protected product websites via configurable Playwright login flow (Phase 3 — deferred)"
+  - id: G6
+    description: "Run reliably on macOS (primary), Linux, and Windows"
+  - id: G7
+    description: "Demonstrate full AI SDLC flow for Guayaba velocity evaluation — process learning matters as much as output"
+
+# ---------------------------------------------------------------------------
+# CONSTRAINTS
+# ---------------------------------------------------------------------------
+constraints:
+  - "Runtime: Node.js 18+"
+  - "Language: TypeScript strict mode"
+  - "Package manager: pnpm (not npm/yarn)"
+  - "Linter: oxlint (CircleCI standard since Oct 2025, migrated from ESLint)"
+  - "Formatter: oxc formatter"
+  - "Test runner: vitest"
+  - "Browser: Playwright (Chromium headless)"
+  - "Image diff: pixelmatch + pngjs"
+  - "CLI: Commander.js"
+  - "CI-first: pipeline created BEFORE feature code, all work validated by CI"
+  - "CI pipeline order: typecheck -> lint -> build -> test"
+  - "NEVER commit secrets to git (zero-tolerance — Jan 2026 incident at CircleCI)"
+  - "NEVER use pre-commit hooks (CircleCI policy — 'attack vector')"
+  - "NEVER include GPL-only dependencies (Wiz scans flag; multi-license OK if permissive option)"
+  - "NEVER implement new features while CI is RED"
+  - "No paid APIs or third-party SaaS without security review"
+  - "No auth needed for v1 — target is public circleci.com/docs/"
+  - "CI-based enforcement preferred over local tooling"
+  - "Ship-and-iterate culture — CI is the quality gate"
+  - "screenshots/baseline/ committed to git; screenshots/current/ and screenshots/diff/ gitignored"
+  - "Support ENV:VAR_NAME syntax for secrets in config"
+
+# ---------------------------------------------------------------------------
+# BDD USER SCENARIOS
+# ---------------------------------------------------------------------------
+scenarios:
+  - id: S1
+    name: "Capture Baseline"
+    persona: "docs team member"
+    goal: "capture baseline screenshots of circleci.com/docs/ pages for future comparisons"
+    given: "a config.json with pages listed"
+    when: "I run `capture`"
+    then: "PNG screenshots are saved to screenshots/baseline/{name}.png"
+    goals: [G1]
+
+  - id: S2
+    name: "Detect Visual Changes"
+    persona: "docs team member"
+    goal: "compare current state of product pages against baselines to know which docs screenshots are stale"
+    given: "baselines exist"
+    when: "I run `compare`"
+    then: "changed pages (>5% diff) generate diff images and appear in a markdown report"
+    goals: [G2, G3, G4]
+
+  - id: S3
+    name: "Review Diff Report"
+    persona: "docs team member"
+    goal: "see a clear markdown report to prioritize which screenshots to update"
+    given: "comparison is complete"
+    when: "I open report.md"
+    then: "I see summary counts, changed pages with diff %, and embedded diff images"
+    goals: [G3]
+
+  - id: S4
+    name: "Missing Baseline Handling"
+    persona: "docs team member"
+    goal: "graceful handling when baselines don't exist so the tool doesn't crash"
+    given: "a page has no baseline"
+    when: "I run `compare`"
+    then: "it's listed as 'missing baseline' in the report and comparison is skipped"
+    goals: [G2, G3]
+
+  - id: S5
+    name: "Authentication (Phase 3 — deferred)"
+    persona: "docs team member"
+    goal: "authenticate against protected product pages to screenshot logged-in UI"
+    deferred: true
+    goals: [G5]
+
+# ---------------------------------------------------------------------------
+# TDD TEST CASES
+# ---------------------------------------------------------------------------
+test_cases:
+  config_parsing:
+    - id: T001
+      description: "Valid config loads successfully"
+      priority: P0
+      track: A
+    - id: T002
+      description: "Missing config file exits with helpful error"
+      priority: P0
+      track: A
+    - id: T003
+      description: "Invalid JSON exits with parse error details"
+      priority: P0
+      track: A
+    - id: T004
+      description: "ENV:VAR_NAME resolves from environment"
+      priority: P1
+      track: A
+    - id: T005
+      description: "Missing env var exits with clear error"
+      priority: P1
+      track: A
+    - id: T006
+      description: "Default viewport (1440x900) applied when not specified"
+      priority: P1
+      track: A
+    - id: T007
+      description: "Default diffThreshold (0.05) applied when not specified"
+      priority: P1
+      track: A
+
+  screenshot_capture:
+    - id: T008
+      description: "Single page captured at correct viewport size"
+      priority: P0
+      track: B
+    - id: T009
+      description: "Multiple pages captured in sequence"
+      priority: P0
+      track: B
+    - id: T010
+      description: "Screenshot saved to correct path with sanitized name"
+      priority: P0
+      track: B
+    - id: T011
+      description: "Page load failure logged, marked as error, continues to next"
+      priority: P1
+      track: B
+    - id: T012
+      description: "Wait delay respected before capture"
+      priority: P1
+      track: B
+
+  image_comparison:
+    - id: T013
+      description: "Identical images produce 0% diff"
+      priority: P0
+      track: C
+    - id: T014
+      description: "Known-changed images produce >0% diff"
+      priority: P0
+      track: C
+    - id: T015
+      description: "Diff exceeding threshold marked as 'changed'"
+      priority: P0
+      track: C
+    - id: T016
+      description: "Diff below threshold marked as 'unchanged'"
+      priority: P0
+      track: C
+    - id: T017
+      description: "Missing baseline marked as 'missing baseline'"
+      priority: P0
+      track: C
+    - id: T018
+      description: "Diff image generated with changed pixels highlighted"
+      priority: P1
+      track: C
+
+  report_generation:
+    - id: T019
+      description: "Markdown report includes summary counts"
+      priority: P0
+      track: D
+    - id: T020
+      description: "Changed pages listed with diff percentage"
+      priority: P0
+      track: D
+    - id: T021
+      description: "Missing baseline pages listed separately"
+      priority: P0
+      track: D
+    - id: T022
+      description: "Unchanged pages listed"
+      priority: P1
+      track: D
+    - id: T023
+      description: "Diff image paths embedded in markdown"
+      priority: P1
+      track: D
+
+  cli_commands:
+    - id: T024
+      description: "`capture` command saves baselines"
+      priority: P0
+      track: B
+    - id: T025
+      description: "`compare` command generates report"
+      priority: P0
+      track: D
+    - id: T026
+      description: "`--config` flag accepts custom config path"
+      priority: P0
+      track: A
+    - id: T027
+      description: "`--output` flag accepts custom report path"
+      priority: P1
+      track: D
+    - id: T028
+      description: "CLI progress output shows page count and status"
+      priority: P2
+      track: Integration
+
+# ---------------------------------------------------------------------------
+# TRACK DECOMPOSITION
+# ---------------------------------------------------------------------------
+tracks:
+  - id: Foundation
+    name: "Project Scaffold"
+    focus: "pnpm, TypeScript, oxlint, oxc, Commander.js, CI pipeline, directory structure"
+    complexity: simple
+    model: sonnet
+    estimated_hours: "2-3"
+    dependencies: []
+    linear_ticket: CIR-484
+    test_cases: []
+    golden_references:
+      - "yahualli-ci repo — CLI tool structure, pnpm setup"
+      - "ralph-test repo — Simple Commander.js CLI pattern"
+      - "web-ui-consolidated/tsconfig.json — TypeScript strict config"
+    definition_of_done:
+      - "pnpm install completes without errors"
+      - "pnpm typecheck passes"
+      - "pnpm lint passes"
+      - "pnpm format passes"
+      - "pnpm build compiles to dist/"
+      - "node dist/index.js --help shows all 3 commands"
+      - ".circleci/config.yml exists and is valid"
+      - "CI pipeline runs GREEN"
+      - "Directory structure matches PRD"
+      - "No secrets in any file"
+      - "No GPL-only dependencies"
+
+  - id: A
+    name: "Config Parsing"
+    focus: "Config TypeScript interface, JSON parser, validation, ENV:VAR_NAME resolver"
+    complexity: simple
+    model: sonnet
+    estimated_hours: "2-3"
+    dependencies: [Foundation]
+    linear_ticket: CIR-485
+    test_cases: [T001, T002, T003, T004, T005, T006, T007, T026]
+    golden_references:
+      - "PRD Config interface"
+    definition_of_done:
+      - "T001-T007 and T026 pass"
+      - "pnpm test && pnpm lint && pnpm typecheck pass"
+      - "CI pipeline GREEN"
+
+  - id: B
+    name: "Screenshot Capture"
+    focus: "Playwright browser setup, screenshot capture function, capture CLI command"
+    complexity: medium
+    model: sonnet
+    estimated_hours: "4-6"
+    dependencies: [Foundation]
+    linear_ticket: CIR-486
+    test_cases: [T008, T009, T010, T011, T012, T024]
+    golden_references:
+      - "web-ui-consolidated/tests/playwright/ — E2E test structure"
+      - "PRD screenshot capture specifications"
+    definition_of_done:
+      - "T008-T012 and T024 pass"
+      - "capture command works against live circleci.com/docs/"
+      - "pnpm test && pnpm lint && pnpm typecheck pass"
+      - "CI pipeline GREEN"
+
+  - id: C
+    name: "Image Comparison"
+    focus: "pixelmatch integration, ComparisonResult, diff image generation, threshold logic"
+    complexity: medium
+    model: sonnet
+    estimated_hours: "4-6"
+    dependencies: [Foundation]
+    linear_ticket: CIR-487
+    test_cases: [T013, T014, T015, T016, T017, T018]
+    golden_references:
+      - "PRD ComparisonResult interface"
+      - "pixelmatch npm package docs"
+    definition_of_done:
+      - "T013-T018 pass"
+      - "pnpm test && pnpm lint && pnpm typecheck pass"
+      - "CI pipeline GREEN"
+
+  - id: D
+    name: "Report Generation"
+    focus: "Reporter interface, markdown report template, compare CLI command, progress output"
+    complexity: simple
+    model: sonnet
+    estimated_hours: "3-4"
+    dependencies: [B, C]
+    linear_ticket: CIR-488
+    test_cases: [T019, T020, T021, T022, T023, T025, T027]
+    golden_references:
+      - "PRD Reporter interface"
+      - "PRD markdown report structure"
+      - "PRD CLI output format"
+    definition_of_done:
+      - "T019-T023, T025, T027 pass"
+      - "compare command generates accurate markdown report"
+      - "pnpm test && pnpm lint && pnpm typecheck pass"
+      - "CI pipeline GREEN"
+
+  - id: E
+    name: "Authentication (DEFERRED)"
+    focus: "Playwright auth flow, configurable selectors, session persistence, auth-check CLI"
+    complexity: complex
+    model: opus
+    estimated_hours: "6-8"
+    dependencies: [B]
+    linear_ticket: CIR-489
+    deferred: true
+    test_cases: []
+    routing_rationale: >
+      Security-sensitive, requires reasoning about session management, MFA,
+      configurable selectors, storageState persistence, and CircleCI-specific
+      patterns (30-day expiry, 1Password, test account management).
+      Cross-references web-ui-consolidated/tests/playwright/auth-setup.ts.
+    golden_references:
+      - "web-ui-consolidated/tests/playwright/auth-setup.ts — Production Playwright auth patterns"
+      - "Playwright auth re-authorization wiki page"
+    definition_of_done:
+      - "Auth flow works with configurable selectors"
+      - "Session reuse across pages via storageState"
+      - "auth-check command verifies credentials"
+      - "pnpm test && pnpm lint && pnpm typecheck pass"
+      - "CI pipeline GREEN"
+
+  - id: Integration
+    name: "E2E Wiring & Polish"
+    focus: "E2E wiring, error handling, maskRegions stub, CLI output, README, demo prep"
+    complexity: medium
+    model: sonnet
+    estimated_hours: "4-6"
+    dependencies: [A, B, C, D]
+    linear_ticket: CIR-490
+    test_cases: [T028]
+    golden_references:
+      - "PRD error handling table"
+      - "PRD CLI output format"
+      - "PRD directory structure"
+    definition_of_done:
+      - "Full E2E flow works: capture -> compare -> report.md"
+      - "All 6 E2E acceptance scenarios pass"
+      - "Error handling matches PRD table"
+      - "CLI output matches PRD format"
+      - "maskRegions warning logged when configured"
+      - "README complete"
+      - "Tool runs against live circleci.com/docs/"
+      - "pnpm test && pnpm lint && pnpm typecheck pass"
+      - "CI pipeline GREEN"
+      - "Demo-ready"
+
+# ---------------------------------------------------------------------------
+# DEPENDENCY GRAPH
+# ---------------------------------------------------------------------------
+dependency_graph: |
+  Foundation (F.0-F.11)
+      |
+      +---> Track A (Config)  ----+
+      |                           |
+      +---> Track B (Capture) ----+---> Track D (Report + compare CLI)
+      |                           |
+      +---> Track C (Compare) ----+
+                                  |
+                                  +---> Integration (E2E, polish, demo)
+
+  Track E (Auth) — DEFERRED for v1
+
+parallelization:
+  - group: "Phase 1 parallel"
+    tracks: [A, B, C]
+    note: "All three can run in parallel after Foundation completes"
+  - group: "Phase 2 sequential"
+    tracks: [D]
+    note: "D depends on B and C completing"
+  - group: "Phase 4"
+    tracks: [Integration]
+    note: "Depends on all active tracks (A, B, C, D)"
+
+# ---------------------------------------------------------------------------
+# EXECUTION DIAGRAM
+# ---------------------------------------------------------------------------
+execution_diagram: |
+  Phase 1: Core
+    ├── Foundation: [CI pipeline] → [pnpm init] → [TS config] → [oxlint] → [Commander scaffold] → [dirs]
+    ├── Track A:    [Config interface] → [JSON parser] → [Validation] → [ENV resolver]
+    └── Track B:    [Playwright setup] → [Capture function] → [capture CLI] → [Wait delay]
+           ▼ (gate: CI GREEN, scaffold works, capture captures a real page)
+  Phase 2: Comparison
+    ├── Track C: [pixelmatch setup] → [ComparisonResult] → [Diff generation] → [Threshold logic]
+    └── Track D: [Reporter interface] → [MD template] → [compare CLI] → [Progress output]
+           ▼ (gate: CI GREEN, compare produces accurate report)
+  Phase 3: Auth (deferred)
+    └── Track E: [Auth flow] → [Selectors config] → [Session persist] → [auth-check CLI]
+           ▼
+  Phase 4: Integration & Polish
+    └── Integration: [E2E wiring] → [Error handling] → [maskRegions stub] → [README] → [Demo prep]
+
+# ---------------------------------------------------------------------------
+# ERROR HANDLING — mapped from PRD to tracks
+# ---------------------------------------------------------------------------
+error_handling:
+  - scenario: "Page fails to load"
+    behavior: "Log error, mark as 'error' in report, continue"
+    track: B
+    integration_track: Integration
+
+  - scenario: "Auth fails"
+    behavior: "Exit with error, suggest checking credentials"
+    track: E
+    deferred: true
+
+  - scenario: "Baseline missing"
+    behavior: "Mark as 'missing baseline' in report, skip comparison"
+    track: C
+
+  - scenario: "Config file missing"
+    behavior: "Exit with helpful error message"
+    track: A
+
+  - scenario: "Invalid JSON config"
+    behavior: "Exit with parse error details"
+    track: A
+
+# ---------------------------------------------------------------------------
+# INTERFACES — from PRD
+# ---------------------------------------------------------------------------
+interfaces:
+  Config: |
+    interface Config {
+      baseUrl: string;
+      auth?: {
+        loginUrl: string;
+        email: string;
+        password: string; // supports "ENV:VAR_NAME"
+        selectors?: { email?: string; password?: string; submit?: string; };
+      };
+      pages: Array<{ path: string; name: string; }>;
+      viewport?: { width: number; height: number; }; // default: 1440x900
+      waitDelay?: number;      // default: 2000
+      diffThreshold?: number;  // default: 0.05
+      maskRegions?: Array<{ selector: string } | { x: number; y: number; width: number; height: number; }>;
+    }
+
+  ComparisonResult: |
+    interface ComparisonResult {
+      page: string;
+      path: string;
+      baselineExists: boolean;
+      diffPixels: number;
+      totalPixels: number;
+      diffPercentage: number;
+      changed: boolean;
+      baselinePath: string;
+      currentPath: string;
+      diffPath: string | null;
+    }
+
+  Reporter: |
+    interface Reporter {
+      name: string;
+      generate(results: ComparisonResult[], outputDir: string): Promise<void>;
+    }
+
+# ---------------------------------------------------------------------------
+# E2E ACCEPTANCE SCENARIOS — from CIR-490
+# ---------------------------------------------------------------------------
+e2e_scenarios:
+  - id: E2E-1
+    name: "Happy path: capture -> compare -> report"
+    tracks: [A, B, C, D]
+    verification: "Report shows correct counts"
+
+  - id: E2E-2
+    name: "Missing baseline handled"
+    tracks: [C, D]
+    verification: "Report lists missing pages"
+
+  - id: E2E-3
+    name: "Page load failure handled"
+    tracks: [B, D]
+    verification: "Failed page logged, others continue"
+
+  - id: E2E-4
+    name: "Invalid config rejected"
+    tracks: [A]
+    verification: "Clear error message, no crash"
+
+  - id: E2E-5
+    name: "Custom config path works"
+    tracks: [A, B]
+    verification: "--config ./custom.json works"
+
+  - id: E2E-6
+    name: "Custom output path works"
+    tracks: [D]
+    verification: "--output ./custom-report works"
+
+# ---------------------------------------------------------------------------
+# MODEL ROUTING SUMMARY
+# ---------------------------------------------------------------------------
+model_routing_summary:
+  sonnet_tasks: 6
+  opus_tasks: 1
+  sonnet_tracks: [Foundation, A, B, C, D, Integration]
+  opus_tracks: [E]
+  routing_rationale: >
+    Sonnet for most tasks because the PRD is extremely detailed with interfaces,
+    schemas, directory structure, and CLI output defined. Patterns exist in golden
+    references. Low ambiguity. Opus reserved for Auth (Track E) which is
+    security-sensitive, requires reasoning about session management, MFA,
+    configurable selectors, and CircleCI-specific patterns.
+  estimated_tokens:
+    foundation: { input: 8000, output: 15000, model: sonnet }
+    track_a: { input: 6000, output: 12000, model: sonnet }
+    track_b: { input: 8000, output: 18000, model: sonnet }
+    track_c: { input: 7000, output: 15000, model: sonnet }
+    track_d: { input: 7000, output: 14000, model: sonnet }
+    track_e: { input: 12000, output: 25000, model: opus }
+    integration: { input: 10000, output: 20000, model: sonnet }
+  total_estimated_tokens:
+    sonnet: { input: 46000, output: 94000 }
+    opus: { input: 12000, output: 25000 }
+
+# ---------------------------------------------------------------------------
+# DEMO CONFIG — 3 pages for demo
+# ---------------------------------------------------------------------------
+demo_config:
+  base_url: "https://circleci.com/docs"
+  pages:
+    - { path: "/", name: "docs-home" }
+    - { path: "/getting-started", name: "getting-started" }
+    - { path: "/configuration-reference", name: "config-reference" }
+  viewport: { width: 1440, height: 900 }
+  wait_delay: 2000
+  diff_threshold: 0.05
+
+# ---------------------------------------------------------------------------
+# EXECUTABLE PROMPTS
+# ---------------------------------------------------------------------------
+executable_prompts:
+
+  foundation:
+    track: Foundation
+    linear_ticket: CIR-484
+    model: sonnet
+    context: >
+      You are setting up the project scaffold for docs-screenshot-diff, a CLI
+      tool that detects visual changes on circleci.com/docs/. This is a greenfield
+      TypeScript project using pnpm. CI-FIRST: create .circleci/config.yml BEFORE
+      any feature code.
+    input_dependencies: []
+    deliverables:
+      - ".circleci/config.yml — CI pipeline (typecheck -> lint -> build -> test)"
+      - "package.json — pnpm project with all scripts and dependencies"
+      - "tsconfig.json — TypeScript strict mode"
+      - ".oxlintrc.json — oxlint config"
+      - "src/index.ts — Commander.js CLI scaffold with capture, compare, auth-check stubs"
+      - "src/commands/capture.ts, compare.ts, auth-check.ts — stub command handlers"
+      - "src/core/config.ts, screenshot.ts, compare.ts, auth.ts — stub core modules"
+      - "src/reporters/reporter.ts, markdown.ts — stub reporter modules"
+      - "src/types/index.ts — shared type definitions"
+      - "config.json — example config targeting circleci.com/docs/ (3 pages)"
+      - ".gitignore — excludes node_modules, dist, current/, diff/, report/"
+      - "Directory structure: screenshots/baseline/, screenshots/current/, screenshots/diff/, report/"
+    acceptance_criteria:
+      - "pnpm install completes without errors"
+      - "pnpm typecheck passes (tsc --noEmit)"
+      - "pnpm lint passes (oxlint)"
+      - "pnpm build compiles TypeScript to dist/"
+      - "node dist/index.js --help shows all 3 commands"
+      - "node dist/index.js capture prints placeholder"
+      - "Directory structure matches PRD"
+      - ".gitignore excludes current/diff but NOT baseline"
+      - "No secrets in any file"
+      - "No GPL-only dependencies"
+    checkpoint: "pnpm ci:check (typecheck && lint && build && test:ci)"
+    constraints:
+      - "Use pnpm (not npm/yarn)"
+      - "TypeScript strict mode"
+      - "ESM modules (type: module in package.json)"
+      - "Node.js >=18"
+      - "No pre-commit hooks"
+      - "Dependencies: playwright, commander, pixelmatch, pngjs, typescript, @types/node, oxlint, vitest"
+
+  track_a:
+    track: A
+    linear_ticket: CIR-485
+    model: sonnet
+    context: >
+      You are implementing config parsing for docs-screenshot-diff. The Foundation
+      scaffold already exists. You need to implement the Config interface, JSON
+      parser, validation, ENV:VAR_NAME resolver, and default values.
+    input_dependencies:
+      - "Foundation scaffold complete (src/types/index.ts, src/core/config.ts exist as stubs)"
+    deliverables:
+      - "src/types/index.ts — Config interface (from PRD)"
+      - "src/core/config.ts — loadConfig(), validateConfig(), resolveEnvVars()"
+      - "src/__tests__/config.test.ts — tests for T001-T007, T026"
+    acceptance_criteria:
+      - "T001: Valid config loads successfully"
+      - "T002: Missing config file exits with helpful error"
+      - "T003: Invalid JSON exits with parse error details"
+      - "T004: ENV:VAR_NAME resolves from environment"
+      - "T005: Missing env var exits with clear error"
+      - "T006: Default viewport (1440x900) applied when not specified"
+      - "T007: Default diffThreshold (0.05) applied when not specified"
+      - "T026: --config flag accepts custom config path"
+    checkpoint: "pnpm test -- config && pnpm ci:check"
+    interfaces:
+      - "Config (see interfaces section)"
+
+  track_b:
+    track: B
+    linear_ticket: CIR-486
+    model: sonnet
+    context: >
+      You are implementing screenshot capture for docs-screenshot-diff using
+      Playwright. The Foundation scaffold exists. Config parsing (Track A) may
+      or may not be complete — use the Config interface from types but implement
+      capture logic independently.
+    input_dependencies:
+      - "Foundation scaffold complete"
+      - "Config interface defined in src/types/index.ts"
+    deliverables:
+      - "src/core/screenshot.ts — launchBrowser(), captureScreenshot(), captureAllPages()"
+      - "src/commands/capture.ts — capture command implementation"
+      - "src/__tests__/screenshot.test.ts — tests for T008-T012, T024"
+    acceptance_criteria:
+      - "T008: Single page captured at correct viewport size (1440x900)"
+      - "T009: Multiple pages captured in sequence"
+      - "T010: Screenshot saved to correct path with sanitized name"
+      - "T011: Page load failure logged, marked as error, continues to next"
+      - "T012: Wait delay respected before capture"
+      - "T024: capture command saves baselines to screenshots/baseline/"
+      - "capture works against live circleci.com/docs/"
+    checkpoint: "pnpm test -- screenshot && node dist/index.js capture --config ./config.json"
+    constraints:
+      - "Chromium headless"
+      - "Viewport: configurable, default 1440x900"
+      - "Wait delay: configurable, default 2000ms"
+      - "Format: PNG, viewport only (not full page)"
+      - "Log maskRegions warning if configured but don't implement masking"
+
+  track_c:
+    track: C
+    linear_ticket: CIR-487
+    model: sonnet
+    context: >
+      You are implementing image comparison for docs-screenshot-diff using
+      pixelmatch. The Foundation scaffold exists. You need to implement the
+      ComparisonResult interface, pixel comparison, diff image generation,
+      and threshold logic.
+    input_dependencies:
+      - "Foundation scaffold complete"
+      - "ComparisonResult interface defined in src/types/index.ts"
+    deliverables:
+      - "src/types/index.ts — ComparisonResult interface (if not already there)"
+      - "src/core/compare.ts — compareImages(), generateDiff(), compareAllPages()"
+      - "src/__tests__/compare.test.ts — tests for T013-T018"
+      - "test fixtures: identical and changed PNG image pairs"
+    acceptance_criteria:
+      - "T013: Identical images produce 0% diff"
+      - "T014: Known-changed images produce >0% diff"
+      - "T015: Diff exceeding threshold marked as 'changed'"
+      - "T016: Diff below threshold marked as 'unchanged'"
+      - "T017: Missing baseline marked as 'missing baseline'"
+      - "T018: Diff image generated with changed pixels highlighted (red/magenta)"
+    checkpoint: "pnpm test -- compare && pnpm ci:check"
+    interfaces:
+      - "ComparisonResult (see interfaces section)"
+
+  track_d:
+    track: D
+    linear_ticket: CIR-488
+    model: sonnet
+    context: >
+      You are implementing report generation and the compare CLI command for
+      docs-screenshot-diff. Tracks B (capture) and C (comparison) must be
+      complete. You wire them together into the compare command and generate
+      a markdown report.
+    input_dependencies:
+      - "Track B complete — screenshot capture works"
+      - "Track C complete — image comparison works"
+      - "Reporter interface defined in src/types/index.ts"
+    deliverables:
+      - "src/types/index.ts — Reporter interface (if not already there)"
+      - "src/reporters/reporter.ts — Reporter interface"
+      - "src/reporters/markdown.ts — MarkdownReporter implementation"
+      - "src/commands/compare.ts — compare command implementation (capture current + compare + report)"
+      - "src/__tests__/reporter.test.ts — tests for T019-T023, T025, T027"
+    acceptance_criteria:
+      - "T019: Markdown report includes summary counts"
+      - "T020: Changed pages listed with diff percentage"
+      - "T021: Missing baseline pages listed separately"
+      - "T022: Unchanged pages listed"
+      - "T023: Diff image paths embedded in markdown"
+      - "T025: compare command generates report"
+      - "T027: --output flag accepts custom report path"
+      - "CLI progress output shows emoji + page count per PRD format"
+    checkpoint: "pnpm test -- reporter && node dist/index.js compare --config ./config.json"
+    interfaces:
+      - "Reporter (see interfaces section)"
+      - "ComparisonResult (see interfaces section)"
+
+  track_e:
+    track: E
+    linear_ticket: CIR-489
+    model: opus
+    deferred: true
+    routing_rationale: >
+      Security-sensitive. Requires reasoning about session management, MFA,
+      configurable selectors, storageState persistence, and CircleCI-specific
+      patterns (30-day session expiry, 1Password test accounts, email/password + MFA).
+      Must cross-reference web-ui-consolidated/tests/playwright/auth-setup.ts for
+      production auth patterns.
+    context: >
+      You are implementing authentication for docs-screenshot-diff. This is
+      Phase 3 (deferred for v1). Track B (capture) must be complete. You need
+      to implement Playwright auth flow with configurable selectors, session
+      persistence via storageState, and the auth-check CLI command.
+    input_dependencies:
+      - "Track B complete — screenshot capture works"
+    deliverables:
+      - "src/core/auth.ts — authenticate(), checkAuth(), saveSession()"
+      - "src/commands/auth-check.ts — auth-check command implementation"
+      - "Integration of auth into capture flow (if auth config present)"
+    acceptance_criteria:
+      - "Auth flow works with configurable email/password/submit selectors"
+      - "Session reuse across pages via Playwright storageState"
+      - "auth-check command verifies credentials without full capture"
+      - "ENV:VAR_NAME works for password field"
+    golden_references:
+      - "web-ui-consolidated/tests/playwright/auth-setup.ts"
+      - "Playwright auth re-authorization wiki"
+
+  integration:
+    track: Integration
+    linear_ticket: CIR-490
+    model: sonnet
+    context: >
+      You are wiring everything together for docs-screenshot-diff and making
+      it demo-ready. All tracks (A, B, C, D) are complete. You need to verify
+      the E2E flow, harden error handling, add the maskRegions stub, polish
+      CLI output, write README, and prepare for demo.
+    input_dependencies:
+      - "Track A complete — config parsing works"
+      - "Track B complete — capture works"
+      - "Track C complete — comparison works"
+      - "Track D complete — report generation works"
+    deliverables:
+      - "Integration fixes across tracks (import paths, type mismatches, async chains)"
+      - "Error handling improvements per PRD table"
+      - "maskRegions stub warning in screenshot.ts"
+      - "CLI output polish matching PRD format exactly"
+      - "README.md — full documentation"
+      - "config.json — finalized example targeting circleci.com/docs/ (3 pages)"
+    acceptance_criteria:
+      - "E2E-1: Happy path capture -> compare -> report works"
+      - "E2E-2: Missing baseline handled gracefully"
+      - "E2E-3: Page load failure handled gracefully"
+      - "E2E-4: Invalid config rejected with clear message"
+      - "E2E-5: Custom config path works"
+      - "E2E-6: Custom output path works"
+      - "T028: CLI progress output shows page count and status"
+      - "Tool runs against live circleci.com/docs/ successfully"
+      - "No secrets in any committed file"
+      - "pnpm test && pnpm lint && pnpm typecheck && pnpm format all pass"
+      - "CI pipeline GREEN"
+      - "Demo-ready"
+    checkpoint: >
+      pnpm build &&
+      node dist/index.js capture --config ./config.json &&
+      node dist/index.js compare --config ./config.json &&
+      cat report/report.md &&
+      pnpm ci:check
+
+# ---------------------------------------------------------------------------
+# CI-FIRST WORKFLOW
+# ---------------------------------------------------------------------------
+ci_first_workflow:
+  principle: "Pipeline created BEFORE feature code. All work validated by CI."
+  pipeline_order:
+    - "pnpm typecheck"
+    - "pnpm lint"
+    - "pnpm build"
+    - "pnpm test:ci"
+  rules:
+    - "Before starting any track: check CI status. If RED, fix first."
+    - "After completing each task: run pnpm ci:check locally, push, verify GREEN."
+    - "CI failure = P0: fix within 30 minutes."
+    - "Never implement new features while CI is RED."
+    - "Document CI fixes in commit messages."

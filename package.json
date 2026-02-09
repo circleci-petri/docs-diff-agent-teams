@@ -1,0 +1,37 @@
+{
+  "name": "docs-screenshot-diff",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "CLI tool to detect visual changes in product website pages",
+  "bin": {
+    "docs-screenshot-diff": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest",
+    "test:ci": "vitest run",
+    "lint": "oxlint src/",
+    "lint:fix": "oxlint src/ --fix",
+    "typecheck": "tsc --noEmit",
+    "format": "oxc_format src/",
+    "format:fix": "oxc_format src/ --fix",
+    "ci:check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test:ci"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "pixelmatch": "^6.0.0",
+    "playwright": "^1.49.0",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "oxlint": "^0.15.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

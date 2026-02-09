@@ -1,0 +1,15 @@
+{
+  "baseUrl": "https://circleci.com/docs",
+  "pages": [
+    { "path": "/", "name": "docs-home" },
+    { "path": "/getting-started", "name": "getting-started" },
+    { "path": "/configuration-reference", "name": "config-reference" }
+  ],
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "waitDelay": 2000,
+  "diffThreshold": 0.05,
+  "maskRegions": []
+}
