@@ -1,0 +1,29 @@
+{
+  "baseUrl": "https://app.circleci.com",
+  "auth": {
+    "loginUrl": "/login",
+    "mode": "automated",
+    "successIndicator": "[data-testid='user-menu-trigger']",
+    "email": "ENV:CIRCLECI_EMAIL",
+    "password": "ENV:CIRCLECI_PASSWORD",
+    "selectors": {
+      "email": "input[name='login']",
+      "password": "input[name='password']",
+      "submit": "button[type='submit']"
+    },
+    "sessionPath": ".auth/session.json"
+  },
+  "pages": [
+    { "path": "/pipelines", "name": "pipelines-page" },
+    { "path": "/projects", "name": "projects-page" }
+  ],
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "waitDelay": 4000,
+  "diffThreshold": 0.05,
+  "removeElements": [
+    "[data-testid='navbar-github-app-authorize-wrapper']"
+  ]
+}

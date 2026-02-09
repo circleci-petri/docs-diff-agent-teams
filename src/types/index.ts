@@ -9,6 +9,9 @@ export interface Config {
       password?: string;
       submit?: string;
     };
+    mode?: 'interactive' | 'automated';
+    sessionPath?: string;
+    successIndicator?: string;
   };
   pages: Array<{ path: string; name: string }>;
   viewport?: { width: number; height: number };
@@ -17,6 +20,7 @@ export interface Config {
   maskRegions?: Array<
     { selector: string } | { x: number; y: number; width: number; height: number }
   >;
+  removeElements?: string[];
 }
 
 export interface ComparisonResult {
