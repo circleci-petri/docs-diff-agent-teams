@@ -6,3 +6,6 @@ report/
 .env
 .cache/
 *.log
+tmp/
+.auth/
+.DS_Store
