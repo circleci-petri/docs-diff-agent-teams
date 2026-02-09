@@ -93,25 +93,27 @@ open screenshots/baseline/docs-home.png
 
 **Say**: "Now let's simulate a visual change. I'll modify one baseline to trigger a diff."
 
-Corrupt one baseline to simulate a change:
-```bash
-# Make a tiny modification to one baseline
-cp screenshots/baseline/getting-started.png screenshots/baseline/getting-started-backup.png
-# Create a slightly different image (add a 1-pixel border)
-python3 -c "
-from pathlib import Path
-data = bytearray(Path('screenshots/baseline/getting-started.png').read_bytes())
-# Flip a few bytes in the image data to create a visible diff
-for i in range(100, 200):
-    data[i] = (data[i] + 128) % 256
-Path('screenshots/baseline/getting-started.png').write_bytes(bytes(data))
-"
-```
-
-**Alternative (simpler)**: Just delete one baseline to show missing baseline handling:
+**Option A (best visual impact)**: Simply delete one baseline so the tool detects a "missing baseline", and wait a few seconds before running compare so the live page timestamp changes:
 ```bash
 rm screenshots/baseline/config-reference.png
 ```
+The remaining 2 pages will likely show a small diff from dynamic content (timestamps, ads), and the deleted page shows the missing baseline flow.
+
+**Option B**: Swap a baseline with a solid-color PNG to guarantee a large diff:
+```bash
+node -e "
+const { PNG } = require('pngjs');
+const fs = require('fs');
+const orig = PNG.sync.read(fs.readFileSync('screenshots/baseline/getting-started.png'));
+const png = new PNG({ width: orig.width, height: orig.height });
+for (let i = 0; i < png.data.length; i += 4) {
+  png.data[i] = 255; png.data[i+1] = 0; png.data[i+2] = 0; png.data[i+3] = 255;
+}
+fs.writeFileSync('screenshots/baseline/getting-started.png', PNG.sync.write(png));
+console.log('Baseline replaced with solid red image');
+"
+```
+This creates a valid PNG of the same dimensions but solid red — guaranteeing a ~100% diff.
 
 **Say**: "Now let's run compare to detect the changes."
 

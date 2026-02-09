@@ -37,11 +37,48 @@ export async function compareImages(
   }
 
   // Read both images
-  const baselineBuffer = readFileSync(baselinePath);
-  const currentBuffer = readFileSync(currentPath);
-
-  const baseline = PNG.sync.read(baselineBuffer);
-  const current = PNG.sync.read(currentBuffer);
+  let baseline: PNG;
+  let current: PNG;
+  try {
+    const baselineBuffer = readFileSync(baselinePath);
+    baseline = PNG.sync.read(baselineBuffer);
+  } catch (error) {
+    console.warn(
+      `⚠️  Corrupt or unreadable baseline image: ${baselinePath} (${error instanceof Error ? error.message : String(error)})`,
+    );
+    return {
+      page: '',
+      path: '',
+      baselineExists: true,
+      diffPixels: 0,
+      totalPixels: 0,
+      diffPercentage: 0,
+      changed: true,
+      baselinePath,
+      currentPath,
+      diffPath: null,
+    };
+  }
+  try {
+    const currentBuffer = readFileSync(currentPath);
+    current = PNG.sync.read(currentBuffer);
+  } catch (error) {
+    console.warn(
+      `⚠️  Corrupt or unreadable current image: ${currentPath} (${error instanceof Error ? error.message : String(error)})`,
+    );
+    return {
+      page: '',
+      path: '',
+      baselineExists: true,
+      diffPixels: 0,
+      totalPixels: 0,
+      diffPercentage: 0,
+      changed: true,
+      baselinePath,
+      currentPath,
+      diffPath: null,
+    };
+  }
 
   // Handle size mismatch
   if (baseline.width !== current.width || baseline.height !== current.height) {
