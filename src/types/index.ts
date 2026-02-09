@@ -15,8 +15,7 @@ export interface Config {
   waitDelay?: number;
   diffThreshold?: number;
   maskRegions?: Array<
-    | { selector: string }
-    | { x: number; y: number; width: number; height: number }
+    { selector: string } | { x: number; y: number; width: number; height: number }
   >;
 }
 

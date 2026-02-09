@@ -18,8 +18,8 @@
     "lint": "oxlint src/",
     "lint:fix": "oxlint src/ --fix",
     "typecheck": "tsc --noEmit",
-    "format": "oxc_format src/",
-    "format:fix": "oxc_format src/ --fix",
+    "format": "oxfmt src/",
+    "format:check": "oxfmt --check src/",
     "ci:check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test:ci"
   },
   "dependencies": {
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "oxfmt": "^0.28.0",
     "oxlint": "^0.15.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
