@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { join } from "node:path";
 import type { Config } from "../types/index.js";
 
@@ -38,6 +38,7 @@ export async function captureScreenshot(
   pageConfig: { path: string; name: string },
   outputDir: string,
   waitDelay: number,
+  removeElements?: string[],
 ): Promise<CaptureResult> {
   const result: CaptureResult = {
     page: pageConfig.name,
@@ -49,6 +50,16 @@ export async function captureScreenshot(
     const url = `${baseUrl}${pageConfig.path}`;
     await page.goto(url, { waitUntil: "networkidle" });
     await page.waitForTimeout(waitDelay);
+
+    // Remove unwanted DOM elements before screenshot
+    if (removeElements && removeElements.length > 0) {
+      for (const selector of removeElements) {
+        await page.evaluate((sel: string) => {
+          const elements = document.querySelectorAll(sel);
+          elements.forEach((el) => el.remove());
+        }, selector);
+      }
+    }
 
     const screenshotPath = join(outputDir, `${pageConfig.name}.png`);
     await page.screenshot({
@@ -68,10 +79,13 @@ export async function captureScreenshot(
 /**
  * Capture all pages from config
  * Logs progress and warnings
+ * If externalContext is provided, it is used instead of creating a new browser.
+ * The caller is responsible for closing the external context/browser.
  */
 export async function captureAllPages(
   config: Config,
   outputDir: string,
+  externalContext?: BrowserContext,
 ): Promise<CaptureResult[]> {
   const viewport = config.viewport || { width: 1440, height: 900 };
   const waitDelay = config.waitDelay ?? 2000;
@@ -83,8 +97,17 @@ export async function captureAllPages(
     );
   }
 
-  const browser = await createBrowser();
-  const page = await createPage(browser, viewport);
+  // Use external context if provided, otherwise create browser internally
+  let browser: Browser | null = null;
+  let page: Page;
+
+  if (externalContext) {
+    page = await externalContext.newPage();
+  } else {
+    browser = await createBrowser();
+    page = await createPage(browser, viewport);
+  }
+
   const results: CaptureResult[] = [];
 
   try {
@@ -99,6 +122,7 @@ export async function captureAllPages(
         pageConfig,
         outputDir,
         waitDelay,
+        config.removeElements,
       );
       results.push(result);
 
@@ -110,7 +134,10 @@ export async function captureAllPages(
     }
   } finally {
     await page.close();
-    await browser.close();
+    // Only close browser if we created it internally
+    if (browser) {
+      await browser.close();
+    }
   }
 
   return results;
