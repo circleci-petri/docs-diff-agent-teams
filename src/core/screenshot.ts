@@ -91,7 +91,7 @@ export async function captureAllPages(
     const total = config.pages.length;
     for (let i = 0; i < config.pages.length; i++) {
       const pageConfig = config.pages[i];
-      const progress = `[${i + 1}/${total}]`;
+      const progress = `  [${i + 1}/${total}]`;
 
       const result = await captureScreenshot(
         page,

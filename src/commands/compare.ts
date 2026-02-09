@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { resolve, join, relative } from 'node:path';
 import { loadConfig } from '../core/config.js';
 import { captureAllPages } from '../core/screenshot.js';
 import { compareAllPages } from '../core/compare.js';
@@ -67,7 +67,8 @@ export async function compareCommand(options: {
     await markdownReporter.generate(comparisonResults, outputDir);
 
     const reportPath = join(outputDir, 'report.md');
-    console.log(`✓ Report saved to ${reportPath}`);
+    const relativeReportPath = relative(process.cwd(), reportPath);
+    console.log(`✓ Report saved to ${relativeReportPath}`);
 
     // Step 5: Print summary
     const changed = comparisonResults.filter(
