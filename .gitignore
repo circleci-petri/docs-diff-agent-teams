@@ -1,7 +1,6 @@
 node_modules/
 dist/
-screenshots/current/
-screenshots/diff/
+screenshots/
 report/
 *.tsbuildinfo
 .env
