@@ -5,7 +5,6 @@ import {
   createPage,
   captureScreenshot,
   captureAllPages,
-  type CaptureResult,
 } from "../core/screenshot.js";
 import type { Config } from "../types/index.js";
 
@@ -24,7 +23,7 @@ describe("screenshot capture", () => {
   beforeEach(() => {
     // Setup mock page
     mockPage = {
-      goto: vi.fn().mockResolvedValue(undefined),
+      goto: vi.fn().mockResolvedValue(null),
       waitForTimeout: vi.fn().mockResolvedValue(undefined),
       screenshot: vi.fn().mockResolvedValue(Buffer.from("fake-image")),
       close: vi.fn().mockResolvedValue(undefined),
@@ -173,7 +172,7 @@ describe("screenshot capture", () => {
       // First page fails, second succeeds
       vi.mocked(mockPage.goto)
         .mockRejectedValueOnce(new Error("Network error"))
-        .mockResolvedValue(undefined);
+        .mockResolvedValue(null);
 
       const config: Config = {
         baseUrl: "https://example.com",
