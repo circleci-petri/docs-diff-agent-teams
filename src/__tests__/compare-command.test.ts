@@ -49,8 +49,7 @@ describe('Compare Command', () => {
     const testDir = join(FIXTURE_DIR, 't025');
     const screenshotsDir = join(testDir, 'screenshots');
     const baselineDir = join(screenshotsDir, 'baseline');
-    const currentDir = join(screenshotsDir, 'current');
-    const reportDir = join(testDir, 'report');
+    const outputDir = join(testDir, 'report');
 
     // Create baseline directory with real PNG screenshots
     mkdirSync(baselineDir, { recursive: true });
@@ -102,7 +101,6 @@ describe('Compare Command', () => {
     }));
 
     const { compareCommand } = await import('../commands/compare.js');
-    const outputDir = join(FIXTURE_DIR, 'report');
 
     // Run compare command
     await compareCommand({ config: configPath, output: outputDir });
