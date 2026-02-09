@@ -192,7 +192,7 @@ describe('Auth Module (Track E - CIR-489)', () => {
 
   describe('T033: Session saved after login (P1)', () => {
     it('should save session state to file after successful login', async () => {
-      const { existsSync, mkdirSync } = await import('node:fs');
+      const { existsSync } = await import('node:fs');
       vi.mocked(existsSync).mockReturnValue(false);
 
       const { authenticate } = await import('../core/auth.js');
@@ -224,7 +224,7 @@ describe('Auth Module (Track E - CIR-489)', () => {
       vi.mocked(mockPage.url).mockReturnValue('https://example.com/dashboard');
 
       const { authenticate } = await import('../core/auth.js');
-      const context = await authenticate(mockBrowser, authConfig);
+      await authenticate(mockBrowser, authConfig);
 
       // Should create context with storageState
       expect(mockBrowser.newContext).toHaveBeenCalledWith(
