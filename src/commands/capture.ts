@@ -12,7 +12,7 @@ export async function captureCommand(options: {
     const config = await loadConfig(configPath);
 
     // Create output directory if it doesn't exist
-    const outputDir = resolve("./screenshots");
+    const outputDir = resolve("./screenshots/baseline");
     mkdirSync(outputDir, { recursive: true });
 
     // Capture all screenshots

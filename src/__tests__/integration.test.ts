@@ -174,6 +174,52 @@ describe("Integration Tests", () => {
     });
   });
 
+  describe("Capture saves to screenshots/baseline/ (regression)", () => {
+    it("should save baselines to screenshots/baseline/ not screenshots/", async () => {
+      const testDir = join(FIXTURE_DIR, "capture-path-regression");
+      mkdirSync(testDir, { recursive: true });
+
+      // Create config
+      const configPath = join(testDir, "test-config.json");
+      const config: Config = {
+        baseUrl: "http://example.com",
+        pages: [{ path: "/", name: "test-page" }],
+        viewport: { width: 1440, height: 900 },
+        waitDelay: 100,
+        diffThreshold: 0.05,
+      };
+      writeFileSync(configPath, JSON.stringify(config));
+
+      // Mock captureAllPages to track what outputDir it receives
+      let capturedOutputDir = "";
+      vi.doMock("../core/screenshot.js", () => ({
+        captureAllPages: vi
+          .fn()
+          .mockImplementation(async (_cfg: Config, dir: string) => {
+            capturedOutputDir = dir;
+            mkdirSync(dir, { recursive: true });
+            return [
+              {
+                page: "test-page",
+                path: "/",
+                success: true,
+                screenshotPath: join(dir, "test-page.png"),
+              },
+            ];
+          }),
+        createBrowser: vi.fn(),
+        createPage: vi.fn(),
+        captureScreenshot: vi.fn(),
+      }));
+
+      const { captureCommand } = await import("../commands/capture.js");
+      await captureCommand({ config: configPath });
+
+      // The critical assertion: output dir must end with screenshots/baseline
+      expect(capturedOutputDir).toMatch(/screenshots[/\\]baseline$/);
+    });
+  });
+
   describe("E2E-4: Invalid config rejected with clear error message", () => {
     it("should reject config with missing baseUrl", async () => {
       const testDir = join(FIXTURE_DIR, "e2e-4-missing-baseurl");
