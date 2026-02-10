@@ -167,8 +167,13 @@ export async function loadConfig(configPath: string): Promise<Config> {
     throw new Error(`❌ Invalid JSON in config file: ${error.message}`);
   }
 
-  // Resolve environment variables
+  // Resolve environment variables (skip auth block — resolved at auth time)
+  const authBlock = rawConfig.auth;
+  delete rawConfig.auth;
   const resolvedConfig = resolveEnvInObject(rawConfig);
+  if (authBlock) {
+    resolvedConfig.auth = authBlock;
+  }
 
   // Validate configuration
   validateConfig(resolvedConfig);

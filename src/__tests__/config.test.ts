@@ -165,8 +165,10 @@ describe('Config Parsing (Track A - CIR-485)', () => {
       await writeFile(testConfigPath, JSON.stringify(configWithEnv));
       const config = await loadConfig(testConfigPath);
 
-      expect(config.auth?.email).toBe('test@example.com');
-      expect(config.auth?.password).toBe('secret123');
+      // Auth fields are NOT resolved at config load time — deferred to auth time
+      // This allows interactive mode to skip ENV vars entirely
+      expect(config.auth?.email).toBe('ENV:TEST_EMAIL');
+      expect(config.auth?.password).toBe('ENV:TEST_PASSWORD');
     });
 
     it('should not resolve strings that do not start with ENV:', async () => {
