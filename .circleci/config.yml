@@ -15,6 +15,11 @@ jobs:
           pkg-manager: pnpm
           cache-version: v1
 
+      # Install Playwright browsers
+      - run:
+          name: Install Playwright Chromium
+          command: npx playwright install --with-deps chromium
+
       # Type check
       - run:
           name: Type Check
