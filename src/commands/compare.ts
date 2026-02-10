@@ -1,6 +1,8 @@
 import { mkdirSync } from 'node:fs';
 import { resolve, join, relative } from 'node:path';
+import { chromium } from 'playwright';
 import { loadConfig } from '../core/config.js';
+import { authenticate } from '../core/auth.js';
 import { captureAllPages } from '../core/screenshot.js';
 import { compareAllPages } from '../core/compare.js';
 import { markdownReporter } from '../reporters/markdown.js';
@@ -25,17 +27,26 @@ export async function compareCommand(options: {
     mkdirSync(diffDir, { recursive: true });
     mkdirSync(outputDir, { recursive: true });
 
-    // Step 1: Capture current screenshots
-    console.log('📸 Capturing current screenshots...');
-    const captureResults = await captureAllPages(config, currentDir);
+    // Launch browser and authenticate
+    const browser = await chromium.launch({ headless: true });
 
-    // Check for capture failures
-    const failedCaptures = captureResults.filter((r) => !r.success);
-    if (failedCaptures.length > 0) {
-      console.error(
-        `\n❌ Failed to capture ${failedCaptures.length} page(s). Cannot proceed with comparison.`,
-      );
-      process.exit(1);
+    try {
+      const context = await authenticate(browser, config);
+
+      // Step 1: Capture current screenshots using authenticated context
+      console.log('📸 Capturing current screenshots...');
+      const captureResults = await captureAllPages(config, currentDir, context);
+
+      // Check for capture failures
+      const failedCaptures = captureResults.filter((r) => !r.success);
+      if (failedCaptures.length > 0) {
+        console.error(
+          `\n❌ Failed to capture ${failedCaptures.length} page(s). Cannot proceed with comparison.`,
+        );
+        process.exit(1);
+      }
+    } finally {
+      await browser.close();
     }
 
     // Step 2: Compare against baselines

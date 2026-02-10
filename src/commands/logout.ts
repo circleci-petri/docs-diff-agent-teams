@@ -1,20 +1,15 @@
 import { resolve } from "node:path";
 import { loadConfig } from "../core/config.js";
-import { checkAuth } from "../core/auth.js";
+import { clearSession } from "../core/auth.js";
 
-export async function authCheckCommand(options: {
+export async function logoutCommand(options: {
   config: string;
 }): Promise<void> {
   try {
     const configPath = resolve(options.config);
     const config = await loadConfig(configPath);
 
-    if (!config.auth) {
-      console.log("No auth configuration found. Auth check skipped.");
-      return;
-    }
-
-    await checkAuth(config);
+    await clearSession(config);
   } catch (error) {
     if (error instanceof Error) {
       console.error(error.message);

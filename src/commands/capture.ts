@@ -1,6 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { chromium } from "playwright";
 import { loadConfig } from "../core/config.js";
+import { authenticate } from "../core/auth.js";
 import { captureAllPages } from "../core/screenshot.js";
 
 export async function captureCommand(options: {
@@ -15,21 +17,30 @@ export async function captureCommand(options: {
     const outputDir = resolve("./screenshots/baseline");
     mkdirSync(outputDir, { recursive: true });
 
-    // Capture all screenshots
-    console.log("📸 Capturing baseline screenshots...");
-    const results = await captureAllPages(config, outputDir);
+    // Launch browser and authenticate
+    const browser = await chromium.launch({ headless: true });
 
-    // Log summary
-    const successCount = results.filter((r) => r.success).length;
-    const failureCount = results.filter((r) => !r.success).length;
+    try {
+      const context = await authenticate(browser, config);
 
-    if (failureCount > 0) {
-      console.log(
-        `\n✓ Captured ${successCount} screenshots (${failureCount} failed)`,
-      );
-      process.exit(1);
-    } else {
-      console.log(`\n✓ Captured ${successCount} screenshots`);
+      // Capture all screenshots using authenticated context
+      console.log("📸 Capturing baseline screenshots...");
+      const results = await captureAllPages(config, outputDir, context);
+
+      // Log summary
+      const successCount = results.filter((r) => r.success).length;
+      const failureCount = results.filter((r) => !r.success).length;
+
+      if (failureCount > 0) {
+        console.log(
+          `\n✓ Captured ${successCount} screenshots (${failureCount} failed)`,
+        );
+        process.exit(1);
+      } else {
+        console.log(`\n✓ Captured ${successCount} screenshots`);
+      }
+    } finally {
+      await browser.close();
     }
   } catch (error) {
     if (error instanceof Error) {

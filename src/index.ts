@@ -3,6 +3,8 @@ import { Command } from "commander";
 import { captureCommand } from "./commands/capture.js";
 import { compareCommand } from "./commands/compare.js";
 import { authCheckCommand } from "./commands/auth-check.js";
+import { loginCommand } from "./commands/login.js";
+import { logoutCommand } from "./commands/logout.js";
 
 const program = new Command();
 
@@ -29,5 +31,17 @@ program
   .description("Verify authentication works")
   .option("-c, --config <path>", "Config file path", "./config.json")
   .action(authCheckCommand);
+
+program
+  .command("login")
+  .description("Interactively log in and save session for future runs")
+  .option("-c, --config <path>", "Config file path", "./config.json")
+  .action(loginCommand);
+
+program
+  .command("logout")
+  .description("Clear saved authentication session")
+  .option("-c, --config <path>", "Config file path", "./config.json")
+  .action(logoutCommand);
 
 program.parse();
